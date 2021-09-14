@@ -1,6 +1,5 @@
 package com.tdsecurities.interview_question;
 
-import com.tdsecurities.interview_question.Transaction;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -18,6 +17,9 @@ import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
 import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.support.ClassifierCompositeItemWriter;
+
+
+import org.springframework.batch.item.support.builder.ClassifierCompositeItemWriterBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.classify.Classifier;
 import org.springframework.context.annotation.Bean;
@@ -27,17 +29,16 @@ import org.springframework.core.io.FileSystemResource;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.util.HashMap;
 import java.util.List;
 
 @Configuration
 @EnableBatchProcessing
 public class BatchConfiguration {
     @Autowired
-    public JobBuilderFactory jobBuilderFactory;
+    private JobBuilderFactory jobBuilderFactory;
 
     @Autowired
-    public StepBuilderFactory stepBuilderFactory;
+    private StepBuilderFactory stepBuilderFactory;
 
 
     @Bean
@@ -67,7 +68,7 @@ public class BatchConfiguration {
     @StepScope
     public FlatFileItemReader<Transaction> reader_2() {
         FlatFileItemReader<Transaction> reader = new FlatFileItemReader<Transaction>();
-        reader.setResource(new ClassPathResource("input_partition.csv"));
+        reader.setResource(new FileSystemResource("input_partition.csv"));
         reader.setLinesToSkip(1);
         reader.setLineMapper(new DefaultLineMapper() {
             {
@@ -84,36 +85,6 @@ public class BatchConfiguration {
             }
         });
         return reader;
-    }
-
-    @Bean
-    public ClassifierCompositeItemWriter<Transaction> TransactionItemWriter(
-            Classifier<Transaction, ItemWriter<? super Transaction>> itemWriterClassifier
-    ) {
-        ClassifierCompositeItemWriter<Transaction> compositeItemWriter = new ClassifierCompositeItemWriter<>();
-        compositeItemWriter.setClassifier(itemWriterClassifier);
-        return compositeItemWriter;
-    }
-
-    @Bean
-    public Classifier<Transaction, ItemWriter<? super Transaction>> itemWriterClassifier() {
-        return Transaction -> {
-            String fileName = Transaction.getCurrency();
-
-            BeanWrapperFieldExtractor<Transaction> fieldExtractor = new BeanWrapperFieldExtractor<>();
-            fieldExtractor.setNames(new String[]{"recId", "name"});
-            DelimitedLineAggregator<Transaction> lineAggregator = new DelimitedLineAggregator<>();
-            lineAggregator.setFieldExtractor(fieldExtractor);
-
-            FlatFileItemWriter<Transaction> itemWriter = new FlatFileItemWriter<>();
-            itemWriter.setResource(new FileSystemResource(fileName));
-            itemWriter.setAppendAllowed(true);
-            itemWriter.setLineAggregator(lineAggregator);
-            itemWriter.setHeaderCallback(writer -> writer.write("REC_ID,NAME"));
-
-            itemWriter.open(new ExecutionContext());
-            return itemWriter;
-        };
     }
 
     @Bean
@@ -148,10 +119,43 @@ public class BatchConfiguration {
     @Bean
     @StepScope
     public ItemWriter<List<Transaction>> multiItemWriter() {
-        ListUnpackingItemWriter<Transaction> listUnpackingItemWriter = new ListUnpackingItemWriter<Transaction>();
+        var listUnpackingItemWriter = new ListUnpackingItemWriter<Transaction>();
         listUnpackingItemWriter.setDelegate(flatFileItemWriter());
         return listUnpackingItemWriter;
     }
+
+    @Bean
+    @StepScope
+    public ClassifierCompositeItemWriter<Transaction> transactionItemWriter(
+            Classifier<Transaction, ItemWriter<? super Transaction>> itemWriterClassifier
+    ) {
+        var compositeItemWriter = new ClassifierCompositeItemWriter<Transaction>();
+        compositeItemWriter.setClassifier(itemWriterClassifier);
+        return compositeItemWriter;
+    }
+
+
+    @Bean
+    public Classifier<Transaction, ItemWriter<? super Transaction>> itemWriterClassifier() {
+        return Transaction -> {
+            String fileName = "output_" + Transaction.getCurrency() + ".csv";
+
+            BeanWrapperFieldExtractor<Transaction> fieldExtractor = new BeanWrapperFieldExtractor<>();
+            fieldExtractor.setNames(new String[]{ "TradeId", "Term", "TradeValue", "Currency"});
+            DelimitedLineAggregator<Transaction> lineAggregator = new DelimitedLineAggregator<>();
+            lineAggregator.setFieldExtractor(fieldExtractor);
+
+            FlatFileItemWriter<Transaction> itemWriter = new FlatFileItemWriter<>();
+            itemWriter.setResource(new FileSystemResource(fileName));
+            itemWriter.setAppendAllowed(true);
+            itemWriter.setLineAggregator(lineAggregator);
+            itemWriter.setHeaderCallback(writer -> writer.write("TradeID,Term,TradeValue,Currency"));
+
+            itemWriter.open(new ExecutionContext());
+            return itemWriter;
+        };
+    }
+
 
     @Bean
     public Job readCSVFilesJob(Step step1, Step step2) {
@@ -175,9 +179,9 @@ public class BatchConfiguration {
     @Bean
     public Step step2() {
         return stepBuilderFactory.get("step2")
-                .chunk(1)
+                .<Transaction, Transaction>chunk(1)
                 .reader(reader_2())
-                .writer(TransactionItemWriter(itemWriterClassifier(null)))
+                .writer(transactionItemWriter(itemWriterClassifier()))
                 .build();
     }
 }

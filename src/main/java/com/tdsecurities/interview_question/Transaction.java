@@ -1,9 +1,11 @@
 package com.tdsecurities.interview_question;
 
+import java.io.Serializable;
 import java.util.*;
 
 
-public class Transaction {
+
+public class Transaction implements Serializable {
     private String TradeId;
     private String Term;
     private String TradeValue;
