@@ -1,19 +1,31 @@
 package com.tdsecurities.interview_question;
 
 import java.io.Serializable;
-import java.util.*;
 
+/**
+ * <h1>Trade</h1>
+ * Implement the Trade object with standard getter and setter
+ * <p>
+ *
+ *
+ * @author  Weixuan(Frank) Xu
+ * @version 1.0
+ * @since   2021-09-14
+ */
 
-
-public class Transaction implements Serializable {
+public class Trade implements Serializable {
     private String TradeId;
     private String Term;
     private String TradeValue;
     private String Currency;
 
-    public Transaction() {}
+    /**
+     * Build the empty constructor for ItemReader to use.
+     * Otherwise, an exception will be raised.
+     */
+    public Trade() {}
 
-    public Transaction(String TradeId, String Term, String TradeValue, String Currency) {
+    public Trade(String TradeId, String Term, String TradeValue, String Currency) {
         this.TradeId = TradeId;
         this.Term = Term;
         this.TradeValue = TradeValue;
