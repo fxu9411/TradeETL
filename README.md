@@ -1,5 +1,7 @@
 # Project: Trade Data ETL
 ## Introduction
+> Maven Project that builds ETL pipeline with Java and Spring Batch.
+
 The objective of the this project is to read the trade data from a single CSV file, process in certain steps and load the data into multiple CSV files based on data attributes.
 
 ## Input
